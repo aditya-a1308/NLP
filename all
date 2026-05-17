@@ -1,0 +1,383 @@
+1-text processing---------------------------------------------------------------------------------
+
+import nltk
+from nltk.tokenize import word_tokenize, sent_tokenize
+from nltk.corpus import stopwords
+from nltk.stem import PorterStemmer, WordNetLemmatizer
+from collections import Counter
+import string
+
+nltk.download('punkt')
+nltk.download('stopwords')
+nltk.download('wordnet')
+
+text = """Natural language processing enables computers to understand human language.
+Language processing is used in machine translation and sentiment analysis.
+Processing text data requires tokenization and stopword removal."""
+
+# Step 1: Sentence Tokenization
+sentences = sent_tokenize(text)
+print("Sentences:", sentences)
+
+# Step 2: Word Tokenization
+words = word_tokenize(text)
+print("Tokens:", words)
+
+# Step 3: Remove Punctuation
+words = [w for w in words if w not in string.punctuation]
+
+# Step 4: Lowercase
+words = [w.lower() for w in words]
+
+# Step 5: Remove Stopwords
+stop_words = set(stopwords.words('english'))
+filtered = [w for w in words if w not in stop_words]
+print("After stopword removal:", filtered)
+
+# Step 6: Stemming
+stemmer = PorterStemmer()
+stemmed = [stemmer.stem(w) for w in filtered]
+print("Stemmed:", stemmed)
+
+# Step 7: Lemmatization
+lemmatizer = WordNetLemmatizer()
+lemmatized = [lemmatizer.lemmatize(w) for w in filtered]
+print("Lemmatized:", lemmatized)
+
+# Step 8: Frequency Analysis
+freq = Counter(filtered)
+print("Word Frequencies:", freq.most_common(5))
+
+
+
+2.Part-of-Speech Tagging and Chunking---------------------------------------------------------------------------------------
+
+
+import spacy
+import nltk
+from nltk import RegexpParser, pos_tag, word_tokenize
+
+nltk.download('averaged_perceptron_tagger')
+nltk.download('punkt')
+
+# --- Part 1: POS Tagging with spaCy ---
+nlp = spacy.load("en_core_web_sm")
+sentence = "The quick brown fox jumps over the lazy dog"
+doc = nlp(sentence)
+
+print("POS Tags (spaCy):")
+for token in doc:
+    print(f"  {token.text:12} | POS: {token.pos_:8} | Tag: {token.tag_}")
+
+# --- Part 2: Chunking with NLTK ---
+# Noun Phrase grammar: optional determiner + any adjectives + noun
+grammar = "NP: {
+?*}"
+chunk_parser = RegexpParser(grammar)
+
+# NLTK needs (word, tag) tuples
+tagged = pos_tag(word_tokenize(sentence))
+print("\nNLTK POS Tags:", tagged)
+
+tree = chunk_parser.parse(tagged)
+print("\nChunk Tree:")
+print(tree)
+
+# --- Part 3: Dependency Parsing with spaCy ---
+print("\nDependency Relations:")
+for token in doc:
+    print(f"  {token.text:12} --[{token.dep_}]--> {token.head.text}")
+
+# Visual (works in Jupyter)
+from spacy import displacy
+displacy.render(doc, style="dep", jupyter=True)
+displacy.render(doc, style="ent", jupyter=True)
+
+
+3.Named Entity Recognition (NER) 
+-----------------------------------------------------------------------------------
+
+
+import spacy
+from collections import Counter
+
+nlp = spacy.load("en_core_web_sm")
+
+# --- Pre-defined dataset with correct labels ---
+dataset = [
+    ("Narendra Modi", "PERSON"),
+    ("India", "GPE"),
+    ("Mumbai", "GPE"),
+    ("Tata Consultancy Services", "ORG"),
+    ("January 26", "DATE"),
+    ("New Delhi", "GPE"),
+    ("Microsoft", "ORG"),
+    ("Sachin Tendulkar", "PERSON"),
+    ("100 crore rupees", "MONEY"),
+    ("2024", "DATE"),
+]
+
+# --- Run NER on a news article ---
+article = """
+Narendra Modi visited Mumbai on January 26 to attend the Republic Day
+celebrations organized by Tata Consultancy Services. Microsoft announced
+a partnership with India worth 100 crore rupees. Sachin Tendulkar was
+the chief guest. The event was held in New Delhi in 2024.
+"""
+
+doc = nlp(article)
+
+# --- Extract model predictions ---
+model_entities = [(ent.text.strip(), ent.label_) for ent in doc.ents]
+print("Model Predictions:")
+for text, label in model_entities:
+    print(f"  {text:30} → {label}")
+
+# --- Cross-check: compare dataset vs model output ---
+print("\n--- Cross-check: Dataset vs Model ---")
+print(f"{'Entity':<30} {'Expected':<12} {'Model Found':<12} {'Match?'}")
+print("-" * 65)
+
+for entity, expected_label in dataset:
+    # Check if model found this entity
+    found_label = None
+    for ent in doc.ents:
+        if entity.lower() in ent.text.lower():
+            found_label = ent.label_
+            break
+    match = "YES" if found_label == expected_label else "NO" if found_label else "MISSED"
+    print(f"{entity:<30} {expected_label:<12} {str(found_label):<12} {match}")
+
+# --- Frequency of each entity type ---
+print("\nEntity Type Frequency:")
+label_counts = Counter([ent.label_ for ent in doc.ents])
+for label, count in label_counts.most_common():
+    print(f"  {label}: {count}")
+
+# Visual (Jupyter)
+from spacy import displacy
+displacy.render(doc, style="ent", jupyter=True)
+
+4.Language Models – N-Gram Approach 
+--------------------------------------------------------------------------
+
+import nltk
+from nltk import ngrams, word_tokenize
+from collections import Counter
+import math
+
+nltk.download('punkt')
+
+# --- Corpus ---
+corpus = """I love NLP. I love AI. NLP is amazing. AI is the future.
+I study NLP every day. NLP helps AI understand language."""
+
+tokens = word_tokenize(corpus.lower())
+print("Tokens:", tokens)
+
+# --- Generate N-grams ---
+unigrams = list(ngrams(tokens, 1))
+bigrams  = list(ngrams(tokens, 2))
+trigrams = list(ngrams(tokens, 3))
+
+print("\nBigrams:", bigrams[:5])
+print("Trigrams:", trigrams[:3])
+
+# --- Count frequencies ---
+unigram_freq = Counter(tokens)
+bigram_freq  = Counter(bigrams)
+trigram_freq = Counter(trigrams)
+
+print("\nUnigram counts:", dict(unigram_freq.most_common(5)))
+print("Bigram counts:", dict(list(bigram_freq.most_common(5))))
+
+# --- Compute Bigram Probability ---
+# P(w2 | w1) = count(w1,w2) / count(w1)
+def bigram_prob(w1, w2):
+    return bigram_freq.get((w1, w2), 0) / unigram_freq.get(w1, 1)
+
+print("\nP(love | i)  =", bigram_prob('i', 'love'))
+print("P(nlp | love) =", bigram_prob('love', 'nlp'))
+print("P(ai | love)  =", bigram_prob('love', 'ai'))
+
+# --- Sentence Probability (bigram chain) ---
+def sentence_prob(sentence):
+    toks = word_tokenize(sentence.lower())
+    prob = 1.0
+    for w1, w2 in ngrams(toks, 2):
+        prob *= bigram_prob(w1, w2)
+    return prob
+
+print("\nP('I love NLP') =", sentence_prob("I love NLP"))
+
+# --- Perplexity ---
+def perplexity(sentence):
+    toks = word_tokenize(sentence.lower())
+    pairs = list(ngrams(toks, 2))
+    N = len(pairs)
+    log_sum = 0
+    for w1, w2 in pairs:
+        p = bigram_prob(w1, w2)
+        log_sum += math.log(p + 1e-10)
+    return math.exp(-log_sum / N)
+
+print("Perplexity('I love NLP') =", round(perplexity("I love NLP"), 4))
+print("(Lower = better model)")
+
+
+5.Vector Semantics and Word Embeddings
+-----------------------------------------------------------------------------
+
+
+from gensim.models import Word2Vec
+from nltk.tokenize import word_tokenize
+from sklearn.manifold import TSNE
+import matplotlib.pyplot as plt
+import numpy as np
+
+# --- Dataset (tokenized sentences) ---
+corpus = [
+    word_tokenize("the king rules the kingdom"),
+    word_tokenize("the queen rules the kingdom"),
+    word_tokenize("the man went to the market"),
+    word_tokenize("the woman went to the market"),
+    word_tokenize("the cat sat on the mat"),
+    word_tokenize("the dog sat on the floor"),
+    word_tokenize("NLP is a field of artificial intelligence"),
+    word_tokenize("machine learning is part of artificial intelligence"),
+]
+
+# --- Train Word2Vec ---
+model = Word2Vec(
+    sentences=corpus,
+    vector_size=50,   # each word = 50-dim vector
+    window=3,         # look 3 words left and right for context
+    min_count=1,      # include words appearing at least once
+    sg=0,             # 0 = CBOW, 1 = Skip-gram
+    epochs=100
+)
+
+model.save("word2vec.model")
+print("Vocabulary:", list(model.wv.key_to_index.keys()))
+
+# --- Find similar words ---
+print("\nWords similar to 'king':")
+print(model.wv.most_similar('king', topn=3))
+
+print("\nWords similar to 'cat':")
+print(model.wv.most_similar('cat', topn=3))
+
+# --- Vector arithmetic ---
+print("\nking - man + woman:")
+result = model.wv.most_similar(positive=['king','woman'], negative=['man'], topn=1)
+print(result)
+
+# --- Similarity score ---
+print("\nSimilarity(king, queen):", round(model.wv.similarity('king','queen'), 4))
+print("Similarity(king, cat):", round(model.wv.similarity('king','cat'), 4))
+
+# --- Visualize with t-SNE ---
+words = list(model.wv.key_to_index)
+vectors = np.array([model.wv[w] for w in words])
+
+tsne = TSNE(n_components=2, random_state=42, perplexity=5)
+coords = tsne.fit_transform(vectors)
+
+plt.figure(figsize=(10, 6))
+plt.scatter(coords[:, 0], coords[:, 1], color='steelblue')
+for i, word in enumerate(words):
+    plt.annotate(word, coords[i], fontsize=9)
+plt.title("Word2Vec — t-SNE Visualization")
+plt.tight_layout()
+plt.show()
+
+
+6.Text Classification and Sentiment Analysis---------------------------------------------------------------------------
+
+
+
+import nltk
+import re
+import heapq
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from nltk.corpus import stopwords
+from wordcloud import WordCloud
+
+nltk.download('punkt')
+nltk.download('stopwords')
+
+# --- Dataset (speech text) ---
+text = """Beans. I was trying to explain to somebody as we were flying in, that's corn.
+That's beans. And they were very impressed at my agricultural knowledge.
+Please give it up for Amaury once again for that outstanding introduction.
+I have a bunch of good friends here today, including somebody who I served with,
+who is one of the finest senators in the country, and we're lucky to have him,
+your Senator, Dick Durbin is here. I also noticed, by the way,
+former Governor Edgar here, who I haven't seen in a long time, and
+somehow he has not aged and I have. And it's great to see you, Governor.
+I want to thank President Killeen and everybody at the U of I System for
+making it possible for me to be here today."""
+
+# --- Step 1: Sentence Tokenize + Preprocess ---
+dataset = nltk.sent_tokenize(text)
+for i in range(len(dataset)):
+    dataset[i] = dataset[i].lower()
+    dataset[i] = re.sub(r'\W', ' ', dataset[i])   # remove non-word chars
+    dataset[i] = re.sub(r'\s+', ' ', dataset[i])  # remove extra spaces
+print("Preprocessed sentences:")
+for i, s in enumerate(dataset): print(f"  S{i+1}: {s[:60]}...")
+
+# --- Step 2: Count Word Frequencies ---
+word2count = {}
+for sent in dataset:
+    for word in nltk.word_tokenize(sent):
+        word2count[word] = word2count.get(word, 0) + 1
+
+# Remove stopwords from frequency dict
+stop_words = set(stopwords.words('english'))
+filtered_count = {w: c for w, c in word2count.items() if w not in stop_words}
+
+# Show as DataFrame
+df = pd.DataFrame(filtered_count.items(), columns=['Word','Frequency'])
+df = df.sort_values('Frequency', ascending=False)
+print("\nTop words:\n", df.head(10).to_string(index=False))
+
+# --- Step 3: Top 10 Frequent Words + Bar Chart ---
+freq_words = heapq.nlargest(10, word2count, key=word2count.get)
+print("\nTop 10 words:", freq_words)
+
+top10 = sorted(word2count.items(), key=lambda x: x[1], reverse=True)[:10]
+words_list, counts_list = zip(*top10)
+plt.figure(figsize=(10,5))
+plt.bar(words_list, counts_list, color='skyblue')
+plt.xticks(rotation=45)
+plt.title('Top 10 Most Frequent Words')
+plt.xlabel('Words'); plt.ylabel('Frequency')
+plt.tight_layout(); plt.show()
+
+# --- Step 4: Build BoW Matrix (binary: 1=present, 0=absent) ---
+X = []
+for sent in dataset:
+    tokens = nltk.word_tokenize(sent)
+    vector = [1 if w in tokens else 0 for w in freq_words]
+    X.append(vector)
+X = np.asarray(X)
+
+plt.figure(figsize=(10,6))
+sns.heatmap(X, cmap='RdYlGn', annot=True, fmt='d',
+            xticklabels=freq_words,
+            yticklabels=[f"S{i+1}" for i in range(len(dataset))])
+plt.title('Bag of Words Matrix (1=present, 0=absent)')
+plt.tight_layout(); plt.show()
+
+# --- Step 5: Word Cloud ---
+wordcloud = WordCloud(width=800, height=400, background_color='white')\
+            .generate_from_frequencies(word2count)
+plt.figure(figsize=(10,5))
+plt.imshow(wordcloud, interpolation='bilinear')
+plt.axis('off')
+plt.title('Word Cloud')
+plt.show()
